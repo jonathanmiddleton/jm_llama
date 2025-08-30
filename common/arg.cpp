@@ -1772,7 +1772,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
     [](common_params & params, int value) {
         params.sampling.reasoning_max_tokens = value < 0 ? 0u : (uint32_t) value;
     }
-    ).set_env("LLAMA_ARG_REASONING_MAX_TOKENS").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
+    ).set_env("LLAMA_ARG_REASONING_MAX_TOKENS").set_sparam());
     add_opt(common_arg(
         {"--reasoning-open"}, "STR",
         "opening delimiter for reasoning block (default: \"<think>\") (env: LLAMA_ARG_REASONING_OPEN)",
@@ -1791,13 +1791,12 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_env("LLAMA_ARG_REASONING_CLOSE_BIAS").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
     add_opt(common_arg(
-        {"--samplers"}, "SAMPLERS",
-        string_format("samplers that will be used for generation in the order, separated by \';\'\n(default: %s)", sampler_type_names.c_str()),
-        [](common_params & params, const std::string & value) {
-            const auto sampler_names = string_split<std::string>(value, ';');
-            params.sampling.samplers = common_sampler_types_from_names(sampler_names, true);
+        {"--reasoning-hard"}, "0|1",
+        "closure enforcement: 1=hard (default), 0=soft (env: LLAMA_ARG_REASONING_HARD)",
+        [](common_params & params, int v) {
+            params.sampling.reasoning_hard = v != 0;
         }
-    ).set_sparam());
+    ).set_env("LLAMA_ARG_REASONING_HARD").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
     add_opt(common_arg(
         {"-s", "--seed"}, "SEED",
         string_format("RNG seed (default: %d, use random seed for %d)", params.sampling.seed, LLAMA_DEFAULT_SEED),
