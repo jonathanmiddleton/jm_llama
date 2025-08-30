@@ -35,7 +35,8 @@ add_library(llama
             unicode-data.cpp
             unicode.cpp
             unicode.h
-            )
+        llama-sampling-reasoning-budget.cpp
+)
 
 target_include_directories(llama PRIVATE .)
 target_include_directories(llama PUBLIC ../include)

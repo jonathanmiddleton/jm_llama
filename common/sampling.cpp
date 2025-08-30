@@ -222,6 +222,17 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         /* .cur_p  = */ {},
     };
 
+    if (params.reasoning_max_tokens > 0) {
+        auto *rb = llama_sampler_init_reasoning_budget(
+            model,
+            params.reasoning_max_tokens,
+            params.reasoning_open.c_str(),
+            params.reasoning_close.c_str(),
+            params.reasoning_close_bias,
+            params.reasoning_hard);
+        llama_sampler_chain_add(result->chain, rb);
+    }
+
     llama_sampler_chain_add(result->chain,
             llama_sampler_init_logit_bias(
                 llama_vocab_n_tokens(vocab),

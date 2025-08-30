@@ -1766,6 +1766,49 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             params.spm_infill = true;
         }
     ).set_examples({LLAMA_EXAMPLE_SERVER}));
+    // common/arg.cpp
+
+    add_opt(common_arg(
+        {"--reasoning-max-tokens"}, "N",
+        "limit tokens inside the reasoning block; 0 = disabled (env: LLAMA_ARG_REASONING_MAX_TOKENS)",
+        [](common_params & params, int value) {
+            params.sampling.reasoning_max_tokens = value < 0 ? 0u : (uint32_t) value;
+        }
+    ).set_env("LLAMA_ARG_REASONING_MAX_TOKENS").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
+
+    add_opt(common_arg(
+        {"--reasoning-open"}, "STR",
+        "opening delimiter for reasoning block (default: \"<think>\") (env: LLAMA_ARG_REASONING_OPEN)",
+        [](common_params & params, const std::string & s) { params.sampling.reasoning_open = s; }
+    ).set_env("LLAMA_ARG_REASONING_OPEN").set_examples({LLAMA_EXAMPLE_SERVER}));
+
+    add_opt(common_arg(
+        {"--reasoning-close"}, "STR",
+        "closing delimiter for reasoning block (default: \"</think>\") (env: LLAMA_ARG_REASONING_CLOSE)",
+        [](common_params & params, const std::string & s) { params.sampling.reasoning_close = s; }
+    ).set_env("LLAMA_ARG_REASONING_CLOSE").set_examples({LLAMA_EXAMPLE_SERVER}));
+
+    add_opt(common_arg(
+    {"--reasoning-close-bias"}, "X",
+    "additive logit bias for first close token when hard enforcement is off (env: LLAMA_ARG_REASONING_CLOSE_BIAS)",
+    [](common_params & params, const std::string & s) {
+        params.sampling.reasoning_close_bias = std::stof(s);  // or std::stod(s)
+    }
+    ).set_env("LLAMA_ARG_REASONING_CLOSE_BIAS").set_sparam());
+
+    add_opt(common_arg(
+        {"--reasoning-hard"},
+        "hard-enforce closure when budget is hit (env: LLAMA_ARG_REASONING_HARD)",
+        [](common_params & params) { params.sampling.reasoning_hard = true; }
+    ).set_env("LLAMA_ARG_REASONING_HARD").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
+
+    add_opt(common_arg(
+        {"--no-reasoning-hard"},
+        "disable hard enforcement; only bias toward closing",
+        [](common_params & params) { params.sampling.reasoning_hard = false; }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
+
+
     add_opt(common_arg(
         {"--samplers"}, "SAMPLERS",
         string_format("samplers that will be used for generation in the order, separated by \';\'\n(default: %s)", sampler_type_names.c_str()),

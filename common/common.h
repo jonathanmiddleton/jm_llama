@@ -164,6 +164,11 @@ struct common_params_sampling {
     bool    ignore_eos         = false;
     bool    no_perf            = false; // disable performance metrics
     bool    timing_per_token   = false;
+    uint32_t    reasoning_max_tokens = 0;
+    std::string reasoning_open       = "<think>";
+    std::string reasoning_close      = "</think>";
+    bool        reasoning_hard       = true;
+    float       reasoning_close_bias = 12.0f;
 
     std::vector<std::string> dry_sequence_breakers = {"\n", ":", "\"", "*"};     // default sequence breakers for DRY
 
