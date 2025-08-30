@@ -159,43 +159,39 @@ static const struct llama_sampler_i SMPL_RB_I = {
     /*.free   =*/ smpl_rbudget_free,
 };
 
+// src/llama-sampling-reasoning-budget.cpp
 extern "C" LLAMA_API struct llama_sampler *
-llama_sampler_init_reasoning_budget(const struct llama_model *    model,
-                                    uint32_t               budget_tokens,
-                                    const char *           open_tag,
-                                    const char *           close_tag,
-                                    float                  close_bias,
-                                    bool                   hard_enforce) {
+llama_sampler_init_reasoning_budget(const llama_vocab * vocab,
+                                    uint32_t             budget_tokens,
+                                    const char *         open_tag,
+                                    const char *         close_tag,
+                                    float                close_bias,
+                                    bool                 hard_enforce) {
     auto * s = new smpl_rbudget_ctx;
     s->budget     = budget_tokens;
     s->hard       = hard_enforce;
     s->close_bias = close_bias;
 
-    const llama_vocab * vocab = llama_model_get_vocab(model);
-
     auto tok = [&](const char *str, std::vector<llama_token> &out) {
         out.clear();
         if (!str || !*str) { return;
 }
-        const auto len = (int32_t) std::strlen(str);
-        const int32_t n1  = llama_tokenize(vocab, str, len,
-                                           /*tokens*/nullptr, /*n_max*/0,
-                                           /*add_special*/false, /*parse_special*/true);
-        if (n1 <= 0) { return;
+        const auto len  = (int32_t) std::strlen(str);
+        const int32_t r1   = llama_tokenize(vocab, str, len, /*tokens*/nullptr, /*n_max*/0,
+                                            /*add_special*/false, /*parse_special*/true);
+        const int32_t need = r1 >= 0 ? r1 : -r1;       // negative => required size
+        if (need <= 0) { return;
 }
-        out.resize(n1);
-        const int32_t n2 = llama_tokenize(vocab, str, len,
-                                          out.data(), (int32_t)out.size(),
+        out.resize(need);
+        const int32_t r2 = llama_tokenize(vocab, str, len, out.data(), need,
                                           /*add_special*/false, /*parse_special*/true);
-        if (n2 > 0 && n2 != (int32_t)out.size()) { out.resize(n2);
-}
+        // r2 should be == need; if not, clamp to the absolute value
+        if (r2 != need) out.resize(r2 >= 0 ? r2 : -r2);
     };
 
     tok(open_tag,  s->open);
     tok(close_tag, s->close);
-
     s->max_win = std::max({(int)s->open.size(), (int)s->close.size(), 8});
 
     return llama_sampler_init(&SMPL_RB_I, s);
 }
-

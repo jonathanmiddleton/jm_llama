@@ -1146,7 +1146,7 @@ extern "C" {
     // available samplers:
 
     LLAMA_API struct llama_sampler * llama_sampler_init_reasoning_budget(
-        const struct llama_model * model,
+        const struct llama_vocab * vocab,
         uint32_t               budget_tokens,
         const char *           open_tag,
         const char *           close_tag,
