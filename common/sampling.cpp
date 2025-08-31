@@ -222,12 +222,10 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, co
         /* .cur_p  = */ {},
     };
 
-    //if (params.reasoning_max_tokens > 0) {
-    if (true) {
+    if (params.reasoning_max_tokens > 0) {
         auto * rb = llama_sampler_init_reasoning_budget(
             vocab,
-           // params.reasoning_max_tokens,
-           16,
+           params.reasoning_max_tokens,
             params.reasoning_open.c_str(),
             params.reasoning_close.c_str(),
             params.reasoning_close_bias,

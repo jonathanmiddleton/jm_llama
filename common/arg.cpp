@@ -1770,7 +1770,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
     {"--reasoning-max-tokens"}, "N",
     "limit tokens inside the reasoning block; 0 = disabled (env: LLAMA_ARG_REASONING_MAX_TOKENS)",
     [](common_params & params, int value) {
-        params.sampling.reasoning_max_tokens = value < 0 ? 0u : (uint32_t) value;
+        params.sampling.reasoning_max_tokens = std::max( static_cast<uint32_t>(value), 0u);
     }
     ).set_env("LLAMA_ARG_REASONING_MAX_TOKENS").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
     add_opt(common_arg(
