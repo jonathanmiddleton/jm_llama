@@ -4376,10 +4376,45 @@ int main(int argc, char ** argv) {
                 task.index = i;
 
                 task.prompt_tokens    = std::move(inputs[i]);
-                task.params           = server_task::params_from_json_cmpl(
+                // Preserve CLI overrides for reasoning-related sampling params if request doesn't set them
+                const auto cli_reasoning_max_tokens = ctx_server.params_base.sampling.reasoning_max_tokens;
+                const auto cli_reasoning_open       = ctx_server.params_base.sampling.reasoning_open;
+                const auto cli_reasoning_close      = ctx_server.params_base.sampling.reasoning_close;
+                const auto cli_reasoning_hard       = ctx_server.params_base.sampling.reasoning_hard;
+                const auto cli_reasoning_close_bias = ctx_server.params_base.sampling.reasoning_close_bias;
+
+                task.params = server_task::params_from_json_cmpl(
                         ctx_server.ctx,
                         ctx_server.params_base,
                         data);
+
+                const bool has_sampling = data.contains("sampling");
+                const auto & sampling_json = has_sampling ? data["sampling"] : json::object();
+
+                // If reasoning_max_tokens wasn't explicitly set in the request, restore CLI override
+                if ((!has_sampling || !sampling_json.contains("reasoning_max_tokens")) &&
+                    cli_reasoning_max_tokens > 0) {
+                    task.params.sampling.reasoning_max_tokens = cli_reasoning_max_tokens;
+                    }
+
+                // Preserve other reasoning-related sampling params from CLI when not provided in the request
+                if ((!has_sampling || !sampling_json.contains("reasoning_open")) &&
+                    !cli_reasoning_open.empty()) {
+                    task.params.sampling.reasoning_open = cli_reasoning_open;
+                    }
+
+                if ((!has_sampling || !sampling_json.contains("reasoning_close")) &&
+                    !cli_reasoning_close.empty()) {
+                    task.params.sampling.reasoning_close = cli_reasoning_close;
+                    }
+
+                if (!has_sampling || !sampling_json.contains("reasoning_hard")) {
+                    task.params.sampling.reasoning_hard = cli_reasoning_hard;
+                }
+
+                if (!has_sampling || !sampling_json.contains("reasoning_close_bias")) {
+                    task.params.sampling.reasoning_close_bias = cli_reasoning_close_bias;
+                }
                 task.id_selected_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat

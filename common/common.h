@@ -168,7 +168,7 @@ struct common_params_sampling {
     std::string reasoning_open       = "<think>";
     std::string reasoning_close      = "</think>";
     bool        reasoning_hard       = true;
-    float       reasoning_close_bias = 12.0f;
+    float       reasoning_close_bias = 24.0f;
 
     std::vector<std::string> dry_sequence_breakers = {"\n", ":", "\"", "*"};     // default sequence breakers for DRY
 

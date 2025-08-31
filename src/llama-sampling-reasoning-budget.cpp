@@ -22,6 +22,7 @@ struct smpl_rbudget_ctx {
     float      close_bias = 0.0f;
 
     int        max_win = 0;
+    llama_token close_first_id = LLAMA_TOKEN_NULL;
 
     static bool ends_with(const std::deque<llama_token> &w, const std::vector<llama_token> &pat) {
         if ((int)w.size() < (int)pat.size()) { return false;
@@ -84,54 +85,52 @@ static void smpl_rbudget_reset(struct llama_sampler * smpl) {
 }
 
 static void clamp_to_token(llama_token_data_array * cur_p, llama_token want) {
-    // ensure 'want' is present; if not, overwrite the last slot
-    int64_t idx = -1;
+    const size_t idx = (size_t) want;
+    if (idx < cur_p->size && cur_p->data[idx].id == want) {
+        const float INF = std::numeric_limits<float>::infinity();
+        for (size_t i = 0; i < cur_p->size; ++i) {
+            cur_p->data[i].logit = (i == idx) ? 1e9f : -INF;
+        }
+        cur_p->selected = (int64_t) idx;
+        cur_p->sorted = false;
+        return;
+    }
+    // fallback: rare, only if some earlier step reordered candidates
+    int64_t found = -1;
     for (size_t i = 0; i < cur_p->size; ++i) {
-        if (cur_p->data[i].id == want) { idx = (int64_t)i; break; }
+        if (cur_p->data[i].id == want) { found = (int64_t) i; break; }
     }
-    if (idx == -1 && cur_p->size > 0) {
-        cur_p->data[cur_p->size - 1].id = want;
-        idx = (int64_t)cur_p->size - 1;
+    if (found != -1) {
+        const float INF = std::numeric_limits<float>::infinity();
+        for (size_t i = 0; i < cur_p->size; ++i) {
+            cur_p->data[i].logit = (i == (size_t)found) ? 1e9f : -INF;
+        }
+        cur_p->selected = found;
+        cur_p->sorted = false;
     }
-    const float INF = std::numeric_limits<float>::infinity();
-    for (size_t i = 0; i < cur_p->size; ++i) {
-        cur_p->data[i].logit = (i == (size_t)idx) ? 1e9f : -INF;
-    }
-    cur_p->selected = idx;
-    cur_p->sorted   = false;
 }
 
-static void bias_token(llama_token_data_array * cur_p, llama_token want, float bias) {
-    for (size_t i = 0; i < cur_p->size; ++i) {
-        if (cur_p->data[i].id == want) {
-            cur_p->data[i].logit += bias;
-            break;
-        }
+
+static inline void bias_token_idx(llama_token_data_array * cur_p, size_t idx, float bias) {
+    if (idx < cur_p->size) {
+        cur_p->data[idx].logit += bias;
+        cur_p->sorted = false;
     }
 }
 
 static void smpl_rbudget_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
     auto * s = (smpl_rbudget_ctx *) smpl->ctx;
 
-    if (!s->inside) { return;
-}
-    if (s->budget == 0) {  return;
-}
+    if (!s->inside) return;
+    if (s->budget == 0) return;
+    if (s->used < s->budget) return;
 
-    if (s->used < s->budget) { return;
-}
-
-    // budget exhausted
     if (s->hard) {
-        if (s->forceq.empty()) { s->begin_force_close();
-}
-        if (!s->forceq.empty()) {
-            clamp_to_token(cur_p, s->forceq.front());
-        }
+        if (s->forceq.empty()) s->begin_force_close();
+        if (!s->forceq.empty()) clamp_to_token(cur_p, s->forceq.front());
     } else {
-        // soft mode: bias towards the first close token
-        if (!s->close.empty()) {
-            bias_token(cur_p, s->close.front(), s->close_bias);
+        if (s->close_first_id != LLAMA_TOKEN_NULL) {
+            bias_token_idx(cur_p, (size_t) s->close_first_id, s->close_bias);
         }
     }
 }
@@ -191,6 +190,7 @@ llama_sampler_init_reasoning_budget(const llama_vocab * vocab,
 
     tok(open_tag,  s->open);
     tok(close_tag, s->close);
+    s->close_first_id = s->close.empty() ? LLAMA_TOKEN_NULL : s->close.front();
     s->max_win = std::max({(int)s->open.size(), (int)s->close.size(), 8});
 
     return llama_sampler_init(&SMPL_RB_I, s);

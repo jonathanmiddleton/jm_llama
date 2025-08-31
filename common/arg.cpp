@@ -1770,8 +1770,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
     {"--reasoning-max-tokens"}, "N",
     "limit tokens inside the reasoning block; 0 = disabled (env: LLAMA_ARG_REASONING_MAX_TOKENS)",
     [](common_params & params, int value) {
-        params.sampling.reasoning_max_tokens = std::max( static_cast<uint32_t>(value), 0u);
-    }
+        params.sampling.reasoning_max_tokens = std::max( static_cast<uint32_t>(value), 0u);}
     ).set_env("LLAMA_ARG_REASONING_MAX_TOKENS").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
     add_opt(common_arg(
         {"--reasoning-open"}, "STR",
@@ -1790,6 +1789,13 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             params.sampling.reasoning_close_bias = std::stof(s);
         }
     ).set_env("LLAMA_ARG_REASONING_CLOSE_BIAS").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
+    add_opt(common_arg(
+    {"--reasoning-hard"}, "0|1",
+    "closure enforcement: 1=hard (default), 0=soft (env: LLAMA_ARG_REASONING_HARD)",
+    [](common_params & params, int v) {
+        params.sampling.reasoning_hard = v != 0;
+    }
+    ).set_env("LLAMA_ARG_REASONING_HARD").set_examples({LLAMA_EXAMPLE_SERVER}).set_sparam());
     add_opt(common_arg(
         {"--samplers"}, "SAMPLERS",
         string_format("samplers that will be used for generation in the order, separated by \';\'\n(default: %s)", sampler_type_names.c_str()),
