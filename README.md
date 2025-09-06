@@ -1,5 +1,6 @@
 # Fork of llama.cpp with additional features
 - reasoning budgets (hard/soft)
+- support for reranking with qwen3-reranker models
 - (in-progress) row-wise GEMM microkern with register accumulation for improved CPU decoding when using quants
 - (future) FlashMLA-2 support (GPU/CPU)
 
