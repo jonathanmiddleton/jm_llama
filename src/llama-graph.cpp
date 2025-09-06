@@ -187,8 +187,8 @@ void llm_graph_input_mean::set_input(const llama_ubatch * ubatch) {
 }
 
 void llm_graph_input_cls::set_input(const llama_ubatch * ubatch) {
-    const int64_t n_tokens     = ubatch->n_tokens;
-    const int64_t n_seqs_unq   = ubatch->n_seqs_unq;
+    const int64_t n_tokens   = ubatch->n_tokens;
+    const int64_t n_seqs_unq = ubatch->n_seqs_unq;
 
     if (cparams.embeddings && (
         cparams.pooling_type == LLAMA_POOLING_TYPE_CLS  ||
@@ -199,12 +199,14 @@ void llm_graph_input_cls::set_input(const llama_ubatch * ubatch) {
         GGML_ASSERT(ggml_backend_buffer_is_host(cls->buffer));
 
         uint32_t * data = (uint32_t *) cls->data;
-        memset(cls->data, 0, n_seqs_unq*ggml_element_size(cls));
+        memset(cls->data, 0, n_seqs_unq * ggml_element_size(cls));
 
         std::vector<int> target_pos(n_seqs_unq, -1);
         std::vector<int> target_row(n_seqs_unq, -1);
 
-        bool last = cparams.pooling_type == LLAMA_POOLING_TYPE_LAST;
+        const bool last =
+            (cparams.pooling_type == LLAMA_POOLING_TYPE_LAST) ||
+            (arch == LLM_ARCH_QWEN3);
 
         for (int i = 0; i < n_tokens; ++i) {
             const llama_pos pos = ubatch->pos[i];
@@ -213,14 +215,12 @@ void llm_graph_input_cls::set_input(const llama_ubatch * ubatch) {
                 const llama_seq_id seq_id  = ubatch->seq_id[i][s];
                 const int32_t      seq_idx = ubatch->seq_idx[seq_id];
 
-                if (
-                    (target_pos[seq_idx] == -1) ||
+                if ((target_pos[seq_idx] == -1) ||
                     ( last && pos >= target_pos[seq_idx]) ||
-                    (!last && pos <  target_pos[seq_idx])
-                ) {
+                    (!last && pos <  target_pos[seq_idx])) {
                     target_pos[seq_idx] = pos;
                     target_row[seq_idx] = i;
-                }
+                    }
             }
         }
 
@@ -231,6 +231,7 @@ void llm_graph_input_cls::set_input(const llama_ubatch * ubatch) {
         }
     }
 }
+
 
 void llm_graph_input_rs::set_input(const llama_ubatch * ubatch) {
     GGML_UNUSED(ubatch);
@@ -1177,8 +1178,7 @@ ggml_tensor * llm_graph_context::build_inp_mean() const {
 }
 
 ggml_tensor * llm_graph_context::build_inp_cls() const {
-    auto inp = std::make_unique<llm_graph_input_cls>(cparams);
-
+    auto inp = std::make_unique<llm_graph_input_cls>(cparams, arch);
     auto & cur = inp->cls;
 
     cur = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, ubatch.n_seqs_unq);
@@ -1899,8 +1899,12 @@ void llm_graph_context::build_pooling(
                     // Single layer classification head (direct projection)
                     // https://github.com/huggingface/transformers/blob/f4fc42216cd56ab6b68270bf80d811614d8d59e4/src/transformers/models/bert/modeling_bert.py#L1476
                     cur = ggml_mul_mat(ctx0, cls_out, inp);
-                    if (cls_out_b) {
-                        cur = ggml_add(ctx0, cur, cls_out_b);
+                    if (arch == LLM_ARCH_QWEN3) {
+                        cur = ggml_log(ctx0, ggml_soft_max(ctx0, cur)); // qwen3 uses log_softmax
+                    } else {
+                        if (cls_out_b) {
+                            cur = ggml_add(ctx0, cur, cls_out_b);
+                        }
                     }
                 } else {
                     GGML_ABORT("RANK pooling requires either cls+cls_b or cls_out+cls_out_b");
