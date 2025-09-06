@@ -233,6 +233,53 @@ static size_t validate_utf8(const std::string& text) {
 // template utils
 //
 
+// JM todo possibly remove tokenize_rerank, see bottom of file
+// format and tokenize rerank task:
+// - using SEP token: [BOS]query[EOS][SEP]doc[EOS]
+// - using prompt:    <rerank_prefix>query<rerank_suffix>doc
+static std::vector<llama_tokens> tokenize_rerank(const struct llama_model * model, const std::string & query, const std::vector<std::string> & documents) {
+    const llama_vocab * vocab = llama_model_get_vocab(model);
+    std::vector<llama_tokens> result;
+
+    for (const auto & doc : documents) {
+        if (llama_vocab_sep(vocab) != LLAMA_TOKEN_NULL) {
+            // Get EOS token - use SEP token as fallback if EOS is not available
+            llama_tokens tok;
+            llama_tokens tok_query = common_tokenize(vocab, query, false, false);
+            llama_tokens tok_doc   = common_tokenize(vocab, doc,   false, false);
+            llama_token  eos_token = llama_vocab_eos(vocab);
+            if (eos_token == LLAMA_TOKEN_NULL) {
+                eos_token = llama_vocab_sep(vocab);
+            }
+
+            tok.reserve(doc.size() + query.size() + 4);
+            tok.push_back(llama_vocab_bos(vocab));
+            tok.insert(tok.end(), tok_query.begin(), tok_query.end());
+            tok.push_back(eos_token);
+            tok.push_back(llama_vocab_sep(vocab));
+            tok.insert(tok.end(), tok_doc.begin(), tok_doc.end());
+            tok.push_back(eos_token);
+
+            result.push_back(std::move(tok));
+        } else {
+            // using prompt template
+            const char * tmpl = llama_model_chat_template(model, "rerank");
+            if (tmpl == nullptr) {
+                throw std::runtime_error("model does not have rerank template");
+            }
+
+            std::string prompt = tmpl;
+            // TODO: may not be efficient to call string_replace_all twice
+            string_replace_all(prompt, "{query}",    query);
+            string_replace_all(prompt, "{document}", doc);
+            llama_tokens tok = common_tokenize(vocab, prompt, true, false);
+            result.push_back(std::move(tok));
+        }
+    }
+
+    return result;
+}
+
 // format infill task
 static llama_tokens format_infill(
         const llama_vocab * vocab,

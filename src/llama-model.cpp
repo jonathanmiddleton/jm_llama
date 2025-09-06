@@ -3054,6 +3054,9 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                 {
                     tok_embd = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab}, 0);
 
+                    // output rerank
+                    cls_out = create_tensor(tn(LLM_TENSOR_CLS_OUT, "weight"), {n_embd, hparams.n_cls_out}, TENSOR_NOT_REQUIRED);
+
                     // output
                     output_norm = create_tensor(tn(LLM_TENSOR_OUTPUT_NORM, "weight"), {n_embd}, 0);
                     output      = create_tensor(tn(LLM_TENSOR_OUTPUT,      "weight"), {n_embd, n_vocab}, TENSOR_NOT_REQUIRED);
@@ -19401,6 +19404,10 @@ uint64_t llama_model_size(const llama_model * model) {
 }
 
 const char * llama_model_chat_template(const llama_model * model, const char * name) {
+    //const auto key = name
+    //    ? LLM_KV(model->arch)(LLM_KV_TOKENIZER_CHAT_TEMPLATE_N) + std::string(name)
+    //    : LLM_KV(model->arch)(LLM_KV_TOKENIZER_CHAT_TEMPLATE);
+    // JM: TODO check if above no longer needed
     const auto key = name ? LLM_KV(model->arch, name)(LLM_KV_TOKENIZER_CHAT_TEMPLATE)
         : LLM_KV(model->arch)(LLM_KV_TOKENIZER_CHAT_TEMPLATE);
     const auto & it = model->gguf_kv.find(key);
