@@ -1178,10 +1178,7 @@ ggml_tensor * llm_graph_context::build_inp_mean() const {
 }
 
 ggml_tensor * llm_graph_context::build_inp_cls() const {
-    // JM TODO maybe:
-    //    auto inp = std::make_unique<llm_graph_input_cls>(cparams, arch);
-    auto inp = std::make_unique<llm_graph_input_cls>(cparams);
-
+    auto inp = std::make_unique<llm_graph_input_cls>(cparams, arch);
     auto & cur = inp->cls;
 
     cur = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, ubatch.n_seqs_unq);
